@@ -5,23 +5,44 @@ const int LED = 4;
 const int button = 2; // interrupt pin
 
 int old_val = 0;
-int state = STANDBY;
+volatile int state = STANDBY;
+volatile int button_state = LOW;
+int led_state = 1;
 
-unsigned long start_time;
+volatile unsigned long start_time;
+
+
 void setup() {
   pinMode (LED, OUTPUT);
   pinMode (button, INPUT);
+  Serial.begin(9600);
+  
   attachInterrupt(digitalPinToInterrupt(button), button_interrupt, CHANGE);
 }
 
 void button_interrupt () {
-  start_time = millis();
+  int but = digitalRead(button);
+  if (but == HIGH && button_state == LOW) {
+    Serial.println("HIGH");
+    button_state = HIGH;
+    start_time = millis();
+  } else if (but == LOW && button_state == HIGH) {
+    Serial.println("LOW\n----");
+    button_state = LOW;
+    int delta = millis() - start_time;
+    if (delta >= 2000) {
+      state = (state == STANDBY ? CONTROL : STANDBY);
+    }
+  }
 }
 
 
 void loop() {
-  if (state == OFF) {
-    digitalWrite(LED, LOW);
+  //Serial.println(digitalRead(button));
+  
+  if (state == STANDBY) {
+    digitalWrite(LED, HIGH);
+    /*
     while (digitalRead(button) == LOW) ;
     start_time = millis();
     delay(10);
@@ -30,11 +51,20 @@ void loop() {
       if (millis() - start_time > 2000) {
         state = ON;
       }
+    }*/
+  }
+  else {
+    //digitalWrite(LED, LOW);
+    Serial.println(led_state);
+    if (!led_state) {
+      digitalWrite(LED, HIGH);
+      delay(100);
+      led_state = 1;
+    }
+    else {
+      digitalWrite(LED, LOW);
+      delay(100);
+      led_state = 0;
     }
   }
-  else digitalWrite(LED, HIGH);
-  
-  
-  
-
 }
