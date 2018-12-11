@@ -13,22 +13,28 @@ int led_state = 1;
 volatile unsigned long start_time;
 
 Servo servox, servoy;
-int posx = 0, posy = 0;
+int posx, posy;
+int oldx, oldy;
 
 const int ldr_tl = 0; // top left
 const int ldr_tr = 1; // top right
 const int ldr_bl = 2; // bottom left
 const int ldr_br = 3; // bottom right
 int val_tl, val_tr, val_bl, val_br;
+int old_top, old_bottom, old_left, old_right;
 
 void setup() {
   pinMode (LED, OUTPUT);
   pinMode (button, INPUT);
   Serial.begin(9600);
 
+  
+  
   servox.attach(9);
   servoy.attach(10);
-  servox.write(0);
+  
+
+  old_top = old_bottom = old_left = old_right = 700;
   
   attachInterrupt(digitalPinToInterrupt(button), button_interrupt, CHANGE);
 }
@@ -43,7 +49,7 @@ void button_interrupt () {
     Serial.println("LOW\n----");
     button_state = LOW;
     int delta = millis() - start_time;
-    if (delta >= 1000) {
+    if (delta >= 1500) {
       state = (state == STANDBY ? CONTROL : STANDBY);
     }
   }
@@ -59,6 +65,8 @@ void loop() {
   
   if (state == STANDBY) {
     digitalWrite(LED, HIGH);
+    posx = 180;
+    posy = 90;
     /*
     while (digitalRead(button) == LOW) ;
     start_time = millis();
@@ -73,6 +81,8 @@ void loop() {
   else {
     //digitalWrite(LED, LOW);
     //Serial.println(led_state);
+    posx = 90;
+    //servox.write(posx);
     if (!led_state) {
       digitalWrite(LED, HIGH);
       delay(100);
@@ -82,27 +92,63 @@ void loop() {
       digitalWrite(LED, LOW);
       delay(100);
       led_state = 0;
+    
+      // ldr
+      val_tl = analogRead(ldr_tl);
+      Serial.println(val_tl);
+      val_tr = analogRead(ldr_tr);
+      Serial.println(val_tr);
+      val_bl = analogRead(ldr_bl);
+      Serial.println(val_bl);
+      val_br = analogRead(ldr_br);
+      Serial.println(val_br);
+      int top = (val_tl + val_tr)/2;
+      int bottom = (val_bl + val_br)/2;
+      int left  = (val_tl + val_bl)/2;
+      int right = (val_tr + val_br)/2;
+
+      // servos
+      if (top > 700 || bottom > 700 || left > 700 || right > 700) {
+        if (top > bottom && posx > 0 && top >= old_top+5) {
+          posx -= 5;
+          //old_top = top;
+          //old_bottom = bottom;
+        }
+        else if (top < bottom && posx < 180 && bottom >= old_bottom+5) {
+          posx += 5; 
+          
+        }
+        old_bottom = bottom;
+        old_top = top;
+        //servox.write(posx);
+      
+        if (left > right && posy < 180 && left > old_left+5) {
+          posy += 5;
+        }
+        else if (left < right && posy > 0 && right > old_right+5) {
+          posy -= 5;
+        }
+        old_left = left;
+        old_right = right;
+        //servoy.write(posy);
+      }
+      else old_top = old_bottom = old_left = old_right = 700;
     }
   }
-// Servo
-  /*
-  for (posx = 0; posx < 180; posx += 5) {
+
+
+  // Movem els motors
+  if (posx != oldx) {
+    Serial.println(posx);
     servox.write(posx);
-    delay(200);
+    oldx = posx;
   }
-  for (posy = 0; posy < 180; posy +=5) {
+  if (posy != oldy) {
+    Serial.println(posy);
     servoy.write(posy);
-    delay(200);
-  }*/
-// ldr
-  val_tl = analogRead(ldr_tl);
-  Serial.println(val_tl);
-  val_tr = analogRead(ldr_tr);
-  Serial.println(val_tr);
-  val_bl = analogRead(ldr_bl);
-  Serial.println(val_bl);
-  val_br = analogRead(ldr_br);
-  Serial.println(val_br);
+    oldy = posy;
+  }
+
   Serial.println("--------------");
   
   delay (500);
